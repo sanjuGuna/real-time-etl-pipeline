@@ -36,9 +36,23 @@ def format_data(res):   #extracting and formating the data before into kafka que
     return data
 def stream_data():
     import json
+    from kafka import KafkaProducer
+
     res = get_data()
     res = format_data(res)
-    print(json.dumps(res,indent=3))
+
+    producer = KafkaProducer(
+        bootstrap_servers=['localhost:9092'],
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        acks='all'
+    )
+
+    producer.send('user_created', res)
+    producer.flush()  #ensuring all the messages are sent and acknowledged before exting
+    producer.close()
+
+
+
 
 # with DAG('user_automation',
 #          default_args=default_args,

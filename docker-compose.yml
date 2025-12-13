@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # -------------------- KAFKA STACK --------------------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     hostname: zookeeper
@@ -35,22 +34,15 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-
-      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-
-      # Metrics
       CONFLUENT_METRICS_ENABLE: 'false'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
-
     healthcheck:
       test: ["CMD", "bash", "-c", "nc -z localhost 9092"]
       interval: 10s
       timeout: 5s
       retries: 5
-
     networks:
       - confluent
 
@@ -67,11 +59,6 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
     networks:
       - confluent
 
@@ -93,9 +80,73 @@ services:
       CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
       CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
       CONFLUENT_METRICS_ENABLE: 'false'
-      PORT: 9021
     networks:
       - confluent
+
+  # -------------------- AIRFLOW STACK --------------------
+  postgres:
+    image: postgres:14.0
+    container_name: airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    volumes:
+      - airflow-postgres-db:/var/lib/postgresql/data
+    networks:
+      - confluent
+
+  airflow-webserver:
+    image: apache/airflow:2.6.0-python3.9
+    container_name: airflow-webserver
+    entrypoint: ['/opt/airflow/scripts/entrypoint.sh']
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__SECRET_KEY: this_is_a_very_secure_key
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts/entrypoint.sh:/opt/airflow/scripts/entrypoint.sh
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "airflow db check"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    command: webserver
+    networks:
+      - confluent
+
+  airflow-scheduler:
+    image: apache/airflow:2.6.0-python3.9
+    container_name: airflow-scheduler
+    entrypoint: [ '/opt/airflow/scripts/entrypoint.sh' ]
+    depends_on:
+      airflow-webserver:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: this_is_a_very_secure_key
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts/entrypoint.sh:/opt/airflow/scripts/entrypoint.sh
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    command: scheduler
+    networks:
+      - confluent
+# -------------------- VOLUMES & NETWORK --------------------
+volumes:
+  airflow-postgres-db:
 
 networks:
   confluent:
