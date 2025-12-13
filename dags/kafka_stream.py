@@ -1,66 +1,71 @@
-from datetime import datetime
+import uuid
+import json
+import time
+import logging
+from datetime import datetime, timedelta
 from airflow import DAG
-import airflow.operators.python
-from airflow.providers.standard.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator
 
 default_args = {
-    'owner':'airflow',
-    'start_date':datetime(2025, 12, 15 ,10, 00),
+    'owner': 'airscholar',
+    'start_date': datetime(2023, 1, 1),
 }
 
-def get_data():# get data from the api and returns it
+def get_data():
     import requests
+    return requests.get("https://randomuser.me/api/").json()['results'][0]
 
-    res = requests.get("https://randomuser.me/api/")
-    res = res.json()
-    res = res['results'][0] #taking only the required data
-    #print(json.dumps(res, indent=3))
-    return res
+def format_data(res):
+    location = res['location']
+    return {
+        'id': str(uuid.uuid4()),  # ✅ FIX 1: JSON serializable
+        'first_name': res['name']['first'],
+        'last_name': res['name']['last'],
+        'gender': res['gender'],
+        'address': f"{location['street']['number']} {location['street']['name']}, "
+                   f"{location['city']}, {location['state']}, {location['country']}",
+        'post_code': location['postcode'],
+        'email': res['email'],
+        'username': res['login']['username'],
+        'dob': res['dob']['date'],
+        'registered_date': res['registered']['date'],
+        'phone': res['phone'],
+        'picture': res['picture']['medium']
+    }
 
-def format_data(res):   #extracting and formating the data before into kafka queue
-    data = {}
-    data['first_name'] = res['name']['first']
-    data['last_name'] = res['name']['last']
-    data['gender'] = res['gender']
-    location= res['location']
-    data['address'] = f"{location['street']['number']} {location['street']['name']}, " \
-                      f"{location['city']}, {location['state']}, {location['country']}"
-    data['postcode'] = location['postcode']
-    data['email'] = res['email']
-    data['username'] = res['login']['username']
-    data['dob'] = res['dob']['date']
-    data['registered_date'] = res['registered']['date']
-    data['phone'] = res['phone']
-    data['picture'] = res['picture']['medium']
 
-    return data
 def stream_data():
-    import json
     from kafka import KafkaProducer
 
-    res = get_data()
-    res = format_data(res)
-
     producer = KafkaProducer(
-        bootstrap_servers=['localhost:9092'],
+        bootstrap_servers=['broker:29092'],
         value_serializer=lambda v: json.dumps(v).encode('utf-8'),
         acks='all'
     )
 
-    producer.send('user_created', res)
-    producer.flush()  #ensuring all the messages are sent and acknowledged before exting
+    end_time = datetime.now() + timedelta(seconds=30)
+
+    while datetime.now() < end_time:
+        try:
+            res = format_data(get_data())
+            producer.send('users_created', res)
+            time.sleep(1)
+        except Exception as e:
+            logging.error(f"Kafka produce error: {e}")
+            raise
+
+    producer.flush()
     producer.close()
 
 
+with DAG(
+    dag_id='user_automation',
+    default_args=default_args,
+    schedule='@daily',
+    catchup=False
+) as dag:
 
-
-# with DAG('user_automation',
-#          default_args=default_args,
-#          schedule_interval='@daily',
-#          catchup=False) as dag:
-#     streaming_task = PythonOperator(
-#         task_id='streaming_data_from_api',
-#         python_callable=stream_data
-#     )
-
-stream_data()
+    streaming_task = PythonOperator(
+        task_id='stream_data_from_api',
+        python_callable=stream_data
+    )
