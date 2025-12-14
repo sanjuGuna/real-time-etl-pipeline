@@ -11,10 +11,12 @@ default_args = {
     'start_date': datetime(2023, 1, 1),
 }
 
+#get data from the api
 def get_data():
     import requests
     return requests.get("https://randomuser.me/api/").json()['results'][0]
 
+#take the important detail and format the data in required form
 def format_data(res):
     location = res['location']
     return {
@@ -33,7 +35,7 @@ def format_data(res):
         'picture': res['picture']['medium']
     }
 
-
+#function tell how to produce and duration of dag to run
 def stream_data():
     from kafka import KafkaProducer
 
@@ -45,7 +47,7 @@ def stream_data():
 
     end_time = datetime.now() + timedelta(seconds=30)
 
-    while datetime.now() < end_time:
+    while datetime.now() < end_time: #run upto the end time (duration)
         try:
             res = format_data(get_data())
             producer.send('users_created', res)
@@ -57,14 +59,13 @@ def stream_data():
     producer.flush()
     producer.close()
 
-
+#dags for airflow to orchestrate..
 with DAG(
     dag_id='user_automation',
     default_args=default_args,
     schedule='@daily',
     catchup=False
 ) as dag:
-
     streaming_task = PythonOperator(
         task_id='stream_data_from_api',
         python_callable=stream_data
