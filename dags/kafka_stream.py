@@ -47,7 +47,7 @@ def stream_data():
 
     end_time = datetime.now() + timedelta(seconds=30)
 
-    while datetime.now() < end_time: #run upto the end time (duration)
+    while datetime.now() < end_time: #Continue running until the defined end_time is reached.
         try:
             res = format_data(get_data())
             producer.send('users_created', res)
