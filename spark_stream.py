@@ -31,9 +31,30 @@ def create_table(session):#create table
                     """)
     print("Table created successfully!!")
 
-def insert_data(session, **kwargs):
-    #insert data
+def insert_data(session, **kwargs): #insert data
+    print("Inserting data into table...")
+    user_id= kwargs.get('id')
+    firstName = kwargs.get('firstName')
+    lastName = kwargs.get('lastName')
+    gender = kwargs.get('gender')
+    post_code = kwargs.get('post_code')
+    email = kwargs.get('email')
+    username = kwargs.get('username')
+    dob =kwargs.get('dob')
+    registered_date =kwargs.get('registered_date')
+    phone= kwargs.get('phone')
+    picture =kwargs.get('picture')
 
+    try:
+        session.execute("""
+                        INSERT INTO spark_streams.created_users(user_id, firstName, lastName,
+                        gender, post_code, email, username, dob, registered_date, phone, picture)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,(user_id, firstName, lastName, gender, post_code, email, username, dob,
+                             registered_date, phone, picture))
+        logging.info(f"Data inserted for {firstName} {lastName}!")
+    except Exception as e:
+        logging.error(f"Error inserting data due to {e}")
 def create_spark_connection(): #create spark conn
     s_conn = None
     try:
@@ -49,6 +70,8 @@ def create_spark_connection(): #create spark conn
         logging.error(f"Could not create spark connection due to {e}.")
 
     return s_conn
+
+
 def create_cassandra_connection(): # create cassandra conn
     try:
         cluster = Cluster(['localhost'])# connection to cassandra cluster
@@ -59,6 +82,8 @@ def create_cassandra_connection(): # create cassandra conn
         return None
 
 
+#def connect_to_kafka(): connect to kafka topics ,takes the json data and continue to process the data... will continue tmrw
+
 if __name__ == "__main__":
     spark_conn = create_spark_connection()
 
@@ -68,3 +93,4 @@ if __name__ == "__main__":
         if session is not None:
             create_keyspace(session)
             create_table(session)
+            insert_data(session)
