@@ -6,6 +6,8 @@ from cassandra.cluster import Cluster
 from cassandra.cqlengine.connection import session
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col
+from pyspark.sql.types import StructField, StringType, StructType
+
 
 def create_keyspace(session): #highest level of container or more similar to tables in RDBMS create keyspace
     session.execute("""
@@ -82,15 +84,59 @@ def create_cassandra_connection(): # create cassandra conn
         return None
 
 
-#def connect_to_kafka(): connect to kafka topics ,takes the json data and continue to process the data... will continue tmrw
+def create_structured_df_from_kafka(spark_df): # structuring in the way to store in cassandra Db
+    schema = StructType([
+        StructField('id', StringType(), False),
+        StructField('firstName', StringType(), False),
+        StructField('lastName', StringType(), False),
+        StructField('gender', StringType(), False),
+        StructField('address', StringType(), False),
+        StructField('post_code', StringType(), False),
+        StructField('email', StringType(), False),
+        StructField('username', StringType(), False),
+        StructField('registered_date', StringType(), False),
+        StructField('phone', StringType(), False),
+        StructField('picture', StringType(), False),
+    ])
+
+    selective_df = spark_df.selectExpr("CAST(value AS STRING)") \
+          .select(from_json(col('value'), schema).alias("data")).select("data.*")
+
+    print(selective_df)
+
+    return selective_df
+
+def connect_to_kafka(spark_conn): #connect to kafka topics ,takes the json data and continue to process the data
+    spark_df = None
+    try:
+        spark_df = spark_conn.readStream \
+                .format('kafka') \
+                .option('kafka.bootstrap.servers','localhost:9029') \
+                .option('subscribe', 'users_created') \
+                .option('startingOffsets', 'earliest') \
+                .load()
+        logging.info(f"Kafka dataframe created successfully!")
+    except Exception as e:
+        logging.warning(f"kafka dataframe could not be created  due to {e}.")
+    return spark_df
 
 if __name__ == "__main__":
     spark_conn = create_spark_connection()
 
     if spark_conn is not None:
+        spark_df =  connect_to_kafka(spark_conn) #connects to kafka with spark_conn and gets the data
+        selection_df = create_structured_df_from_kafka(spark_df)
         session = create_cassandra_connection()
 
         if session is not None:
             create_keyspace(session)
             create_table(session)
-            insert_data(session)
+            #insert_data(session) we are not doing in once, we are streaming the data..
+
+            streaming_query= (selection_df.writeStream.format("org.apacke.spark.sql.cassandra")
+                            .option('checkpointLocation', '/tmp/checkpoint')
+                            .option('keyspace', 'spark_streams')
+                            .option('table', 'created_users')
+                            .start())
+
+            streaming_query.awaitTermination()
