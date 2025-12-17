@@ -20,9 +20,9 @@ def get_data():
 def format_data(res):
     location = res['location']
     return {
-        'id': str(uuid.uuid4()),  # ✅ FIX 1: JSON serializable
-        'first_name': res['name']['first'],
-        'last_name': res['name']['last'],
+        'user_id': str(uuid.uuid4()),  #JSON serializable
+        'firstname': res['name']['first'],
+        'lastname': res['name']['last'],
         'gender': res['gender'],
         'address': f"{location['street']['number']} {location['street']['name']}, "
                    f"{location['city']}, {location['state']}, {location['country']}",
