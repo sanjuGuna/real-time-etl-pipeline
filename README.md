@@ -13,7 +13,7 @@ The entire system is containerized using **Docker** for easy setup and reproduci
 
 * **Source:** External REST API
 * **Ingestion:** Apache Kafka
-* **Processing:** Spark Structured Streaming (to be added)
+* **Processing:** Spark Structured Streaming (
 * **Orchestration:** Apache Airflow
 * **Metadata Storage:** PostgreSQL
 * **Monitoring:** Kafka Control Center
@@ -40,7 +40,7 @@ The entire system is containerized using **Docker** for easy setup and reproduci
 2.  **Airflow** schedules and triggers Kafka producer tasks.
 3.  **Kafka** streams data in real time via topics.
 4.  **Spark** processes the data in micro-batches (Future).
-5.  Processed data is stored in a downstream system (DB / Cassandra - Future).
+5.  Processed data is stored in a downstream system (DB / Cassandra).
 6.  **Kafka Control Center** is used to monitor topics and messages.
 
 ## ▶️ How to Run
