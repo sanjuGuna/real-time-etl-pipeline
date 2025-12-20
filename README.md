@@ -13,7 +13,7 @@ The entire system is containerized using **Docker** for easy setup and reproduci
 
 * **Source:** External REST API
 * **Ingestion:** Apache Kafka
-* **Processing:** Spark Structured Streaming (
+* **Processing:** Spark Structured Streaming
 * **Orchestration:** Apache Airflow
 * **Metadata Storage:** PostgreSQL
 * **Monitoring:** Kafka Control Center
