@@ -19,6 +19,7 @@ The entire system is containerized using **Docker** for easy setup and reproduci
 * **Monitoring:** Kafka Control Center
 * **Containerization:** Docker & Docker Compose
 
+<img width="1696" height="608" alt="Architecture" src="https://github.com/user-attachments/assets/56e1410b-ebe9-4422-a337-84b075156141" />
 
 
 ## 🧰 Tech Stack
@@ -27,7 +28,7 @@ The entire system is containerized using **Docker** for easy setup and reproduci
 | :--- | :--- | :--- |
 | Stream Broker | **Apache Kafka** | Real-time message streaming |
 | Orchestration | **Apache Airflow** | Scheduling and workflow management |
-| Processing | **Apache Spark** | Distributed stream processing (Future) |
+| Processing | **Apache Spark** | Distributed stream processing  |
 | Database | **PostgreSQL** | Metadata and potential data sink |
 | Containerization | **Docker & Docker Compose** | System setup and reproducibility |
 | Language | **Python** | Producer logic and DAGs |
